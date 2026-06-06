@@ -9,7 +9,7 @@ namespace AudioCompressionProject
 {
     public class AudioCompressor
     {
-      
+
         private static int Clamp(int value, int min, int max)
         {
             if (value < min) return min;
@@ -22,308 +22,322 @@ namespace AudioCompressionProject
             return (int)(Clamp((int)(sample * 32767), short.MinValue, short.MaxValue));
         }
 
-        /*  public static List<short> CompressDPCM(float[] samples , CompressionSettings settings)
-           {
-               List<short> compressed = new List<short>();
-
-               int previous = 0;
-
-               foreach (float sample in samples)
-               {
-                   int current = ToPCM(sample);
-
-                   int diff = current - previous;
-
-                   compressed.Add((short)Clamp(diff, short.MinValue, short.MaxValue));
-
-                   previous = current;
-               }
-
-               return compressed;
-           }*/
-
-        public static List<short> CompressDPCM(float[] samples, CompressionSettings settings , Action<CompressionProgressInfo> reportProgress = null)
+        public static List<byte> CompressDPCM(
+           float[] samples,
+           CompressionSettings settings,
+           Action<CompressionProgressInfo> reportProgress = null)
         {
-            List<short> compressed = new List<short>();
+            List<byte> compressed = new List<byte>();
 
-            int previousReconstructed = 0;
+            int prev1 = 0;
+            int prev2 = 0;
 
             int levels = settings.QuantizationLevels;
-
+            int bitsPerSample = (int)Math.Log(levels, 2);
             float interval = 65535f / levels;
+
             int maxLevel = (levels / 2) - 1;
             int minLevel = -(levels / 2);
+
+            byte currentByte = 0;
+            int bitPosition = 0;
+
             Stopwatch sw = Stopwatch.StartNew();
             CompressionProgressInfo info = new CompressionProgressInfo();
+
             for (int i = 0; i < samples.Length; i++)
             {
-                float sample = samples[i];
-                int current = ToPCM(sample);
+                int current = ToPCM(samples[i]);
 
-                int error = current - previousReconstructed;
+                int predicted = (prev1 + prev2) / 2;
+
+                int error = current - predicted;
 
                 int quantizedError = (int)Math.Round(error / interval);
 
-                quantizedError = Math.Max(minLevel, Math.Min(maxLevel, quantizedError));
-                compressed.Add((short)quantizedError);
+                quantizedError = Math.Max(minLevel,
+                                  Math.Min(maxLevel, quantizedError));
+
+                int packedValue = quantizedError - minLevel;
+
+                for (int b = 0; b < bitsPerSample; b++)
+                {
+                    int bit = (packedValue >> b) & 1;
+
+                    currentByte |= (byte)(bit << bitPosition);
+                    bitPosition++;
+
+                    if (bitPosition == 8)
+                    {
+                        compressed.Add(currentByte);
+                        currentByte = 0;
+                        bitPosition = 0;
+                    }
+                }
 
                 int reconstructedError = (int)(quantizedError * interval);
-                int currentReconstructed = previousReconstructed + reconstructedError;
+                int reconstructed = predicted + reconstructedError;
 
-                previousReconstructed = Math.Max(short.MinValue, Math.Min(short.MaxValue, currentReconstructed));
-               
+                reconstructed = Math.Max(
+                     short.MinValue, Math.Min(short.MaxValue, reconstructed));
+
+                prev2 = prev1;
+                prev1 = reconstructed;
+
                 if (i % 200 == 0 || i == samples.Length - 1)
                 {
                     info.ProcessedSamples = i;
                     info.TotalSamples = samples.Length;
                     info.ElapsedSeconds = sw.Elapsed.TotalSeconds;
                     info.CompressedSize = compressed.Count;
-                 
 
                     reportProgress?.Invoke(info);
                 }
             }
-            sw.Stop();
+
+            if (bitPosition > 0)
+                compressed.Add(currentByte);
+
             return compressed;
         }
 
-        /*   public static List<short> DecompressDPCM(List<short> data)
-           {
-               List<short> samples = new List<short>();
-
-               int previous = 0;
-
-               foreach (short diff in data)
-               {
-                   int current = previous + diff;
-
-                   samples.Add((short)Clamp(current, short.MinValue, short.MaxValue));
-
-                   previous = current;
-               }
-
-               return samples;
-           }*/
-        public static List<short> DecompressDPCM(List<short> data, CompressionSettings settings, Action<int> reportProgress = null)
+        public static List<short> DecompressDPCM(
+          List<byte> data,
+          CompressionSettings settings,
+          int originalSampleCount,
+          Action<int> reportProgress = null)
         {
             List<short> samples = new List<short>();
 
-            int previousReconstructed = 0;
+            int prev1 = 0;
+            int prev2 = 0;
 
             int levels = settings.QuantizationLevels;
+            int bitsPerSample = (int)Math.Log(levels, 2);
             float interval = 65535f / levels;
-            int i = 1;
-            foreach (short qError in data)
+
+            int minLevel = -(levels / 2);
+
+            int currentValue = 0;
+            int bitsRead = 0;
+            int processed = 0;
+
+            foreach (byte currentByte in data)
             {
+                for (int b = 0; b < 8; b++)
+                {
+                    int bit = (currentByte >> b) & 1;
 
-                int reconstructedError = (int)(qError * interval);
+                    currentValue |= (bit << bitsRead);
+                    bitsRead++;
 
+                    if (bitsRead == bitsPerSample)
+                    {
+                        int qError = currentValue + minLevel;
 
-                int currentReconstructed = previousReconstructed + reconstructedError;
+                        int predicted = (prev1 + prev2) / 2;
 
+                        int reconstructedError = (int)(qError * interval);
+                        int sample = predicted + reconstructedError;
 
-                short finalSample = (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, currentReconstructed));
-                samples.Add(finalSample);
+                        short finalSample = (short)Math.Max(
+                            short.MinValue,
+                            Math.Min(short.MaxValue, sample));
 
-                previousReconstructed = currentReconstructed;
-                reportProgress?.Invoke((i * 100) / data.Count);
-                i++;
+                        samples.Add(finalSample);
+
+                        prev2 = prev1;
+                        prev1 = finalSample;
+                        //prev1 = sample;
+
+                        processed++;
+
+                        reportProgress?.Invoke(
+                            (processed * 100) / originalSampleCount);
+
+                        currentValue = 0;
+                        bitsRead = 0;
+
+                        if (processed >= originalSampleCount)
+                            return samples;
+                    }
+                }
             }
 
             return samples;
         }
-
-        /*   public static List<short> CompressDelta(float[] samples , CompressionSettings settings)
-           {
-               List<short> compressed = new List<short>();
-
-               int predicted = 0;
-               int step = 500;
-
-               foreach (float sample in samples)
-               {
-                   int current = (int)(sample * 32767);
-
-                   int error = current - predicted;
-
-                   if (error >= 0)
-                   {
-                       compressed.Add(1);
-                       predicted += step;
-                   }
-                   else
-                   {
-                       compressed.Add(0);
-                       predicted -= step;
-                   }
-
-                   step = Math.Max(10, Math.Min(2000, step + (Math.Abs(error) > step ? 50 : -20)));
-               }
-
-               return compressed;
-           }*/
-        public static List<short> CompressDelta(float[] samples, CompressionSettings settings , Action<CompressionProgressInfo> reportProgress = null)
+        public static List<byte> CompressDelta(
+           float[] samples,
+           CompressionSettings settings,
+           Action<CompressionProgressInfo> reportProgress = null)
         {
-            List<short> compressed = new List<short>();
+            List<byte> compressed = new List<byte>();
 
             int predicted = 0;
-
             int step = settings.StepSize;
+
+            byte currentByte = 0;
+            int bitPosition = 0;
+
             Stopwatch sw = Stopwatch.StartNew();
             CompressionProgressInfo info = new CompressionProgressInfo();
+
             for (int i = 0; i < samples.Length; i++)
             {
                 float sample = samples[i];
                 int current = ToPCM(sample);
 
                 int error = current - predicted;
-              
+
+                int bit;
+
                 if (error >= 0)
                 {
-                    compressed.Add(1);
+                    bit = 1;
                     predicted += step;
                 }
                 else
                 {
-                    compressed.Add(0);
+                    bit = 0;
                     predicted -= step;
                 }
-              
-                predicted = Math.Max(short.MinValue, Math.Min(short.MaxValue, predicted));
-                
+
+                predicted = Math.Max(short.MinValue,
+                            Math.Min(short.MaxValue, predicted));
+
+                currentByte |= (byte)(bit << bitPosition);
+
+                bitPosition++;
+
+                if (bitPosition == 8)
+                {
+                    compressed.Add(currentByte);
+
+                    currentByte = 0;
+                    bitPosition = 0;
+                }
 
                 if (i % 200 == 0 || i == samples.Length - 1)
                 {
                     info.ProcessedSamples = i;
                     info.TotalSamples = samples.Length;
                     info.ElapsedSeconds = sw.Elapsed.TotalSeconds;
-                    info.CompressedSize = compressed.Count;
 
+                    info.CompressedSize = compressed.Count;
 
                     reportProgress?.Invoke(info);
                 }
             }
+
+            if (bitPosition > 0)
+            {
+                compressed.Add(currentByte);
+            }
+
             sw.Stop();
 
             return compressed;
         }
 
-        /* public static List<short> DecompressDelta(List<short> data)
-         {
-             List<short> samples = new List<short>();
-
-             int value = 0;
-             int step = 500;
-
-             foreach (short bit in data)
-             {
-                 if (bit == 1)
-                     value += step;
-                 else
-                     value -= step;
-
-                 step = Math.Max(10, Math.Min(2000, step + 10));
-
-                 samples.Add((short)value);
-             }
-
-             return samples;
-         }*/
-
-        public static List<short> DecompressDelta(List<short> data, CompressionSettings settings , Action<int> reportProgress = null)
+        public static List<short> DecompressDelta(
+          List<byte> data,
+          CompressionSettings settings,
+          int originalSampleCount,
+          Action<int> reportProgress = null)
         {
             List<short> samples = new List<short>();
 
             int value = 0;
-         
             int step = settings.StepSize;
-            int i = 1;
-            foreach (short bit in data)
+
+            int processedSamples = 0;
+
+            foreach (byte currentByte in data)
             {
-                if (bit == 1)
-                    value += step;
-                else
-                    value -= step;
+                for (int bitPosition = 0; bitPosition < 8; bitPosition++)
+                {
+                    if (processedSamples >= originalSampleCount)
+                        break;
 
-                
-                value = Math.Max(short.MinValue, Math.Min(short.MaxValue, value));
+                    int bit = (currentByte >> bitPosition) & 1;
 
-                samples.Add((short)value);
-                reportProgress?.Invoke((i * 100) / data.Count);
-                i++;
+                    if (bit == 1)
+                        value += step;
+                    else
+                        value -= step;
+
+                    value = Math.Max(
+                        short.MinValue,
+                        Math.Min(short.MaxValue, value));
+
+                    samples.Add((short)value);
+
+                    processedSamples++;
+
+                    reportProgress?.Invoke(
+                        (processedSamples * 100) / originalSampleCount);
+                }
             }
 
             return samples;
         }
 
-        /* public static List<short> CompressAdaptiveDelta(float[] samples , CompressionSettings settings)
-         {
-             List<short> compressed = new List<short>();
-
-             int predicted = 0;
-             int step = 500;
-
-             foreach (float sample in samples)
-             {
-                 int current = (int)(sample * 32767);
-
-                 int error = current - predicted;
-
-                 if (error >= 0)
-                 {
-                     compressed.Add(1);
-                     predicted += step;
-                 }
-                 else
-                 {
-                     compressed.Add(0);
-                     predicted -= step;
-                 }
-
-                 if (Math.Abs(error) > step)
-                     step = Math.Min(3000, step + 100);
-                 else
-                     step = Math.Max(10, step - 50);
-             }
-
-             return compressed;
-         }*/
-        public static List<short> CompressAdaptiveDelta(float[] samples, CompressionSettings settings , Action<CompressionProgressInfo> reportProgress = null)
+        public static List<byte> CompressAdaptiveDelta(
+          float[] samples,
+          CompressionSettings settings,
+          Action<CompressionProgressInfo> reportProgress = null)
         {
-        
-            List<short> compressed = new List<short>();
+            List<byte> compressed = new List<byte>();
+
             int predicted = 0;
             int step = settings.StepSize;
             int previousBit = -1;
+
+            byte currentByte = 0;
+            int bitPosition = 0;
+
             Stopwatch sw = Stopwatch.StartNew();
             CompressionProgressInfo info = new CompressionProgressInfo();
+
             for (int i = 0; i < samples.Length; i++)
             {
                 float sample = samples[i];
                 int current = ToPCM(sample);
+
                 int error = current - predicted;
                 int currentBit;
 
                 if (error >= 0)
                 {
-                    compressed.Add(1);
-                    predicted += step;
                     currentBit = 1;
+                    predicted += step;
                 }
                 else
                 {
-                    compressed.Add(0);
-                    predicted -= step;
                     currentBit = 0;
+                    predicted -= step;
                 }
 
-                predicted = Math.Max(short.MinValue, Math.Min(short.MaxValue, predicted));
+                predicted = Math.Max(
+                    short.MinValue,
+                    Math.Min(short.MaxValue, predicted));
 
-                
+                currentByte |= (byte)(currentBit << bitPosition);
+
+                bitPosition++;
+
+                if (bitPosition == 8)
+                {
+                    compressed.Add(currentByte);
+
+                    currentByte = 0;
+                    bitPosition = 0;
+                }
+
                 if (currentBit == previousBit)
-                    step = Math.Min(10000, (int)(step* 1.5)); 
+                    step = Math.Min(10000, (int)(step * 1.5));
                 else
-                    step = Math.Max(10, (int)(step * 0.5));   
+                    step = Math.Max(10, (int)(step * 0.5));
 
                 previousBit = currentBit;
 
@@ -332,123 +346,151 @@ namespace AudioCompressionProject
                     info.ProcessedSamples = i;
                     info.TotalSamples = samples.Length;
                     info.ElapsedSeconds = sw.Elapsed.TotalSeconds;
-                    info.CompressedSize = compressed.Count;
 
+                    info.CompressedSize = compressed.Count;
 
                     reportProgress?.Invoke(info);
                 }
             }
+
+            if (bitPosition > 0)
+            {
+                compressed.Add(currentByte);
+            }
+
             sw.Stop();
+
             return compressed;
         }
 
-        /* public static List<short> DecompressAdaptiveDelta(List<short> data)
-         {
-             List<short> samples = new List<short>();
-
-             int value = 0;
-             int step = 500;
-
-             foreach (short bit in data)
-             {
-                 if (bit == 1)
-                     value += step;
-                 else
-                     value -= step;
-
-                 step = Math.Max(10, Math.Min(3000, step + 20));
-
-                 samples.Add((short)value);
-             }
-
-             return samples;
-         }*/
-
-        public static List<short> DecompressAdaptiveDelta(List<short> data, CompressionSettings settings, Action<int> reportProgress = null)
+        public static List<short> DecompressAdaptiveDelta(
+           List<byte> data,
+           CompressionSettings settings,
+           int originalSampleCount,
+           Action<int> reportProgress = null)
         {
             List<short> samples = new List<short>();
+
             int value = 0;
-            int step = settings.StepSize; 
+            int step = settings.StepSize;
             int previousBit = -1;
-            int i = 1;
-            foreach (short bit in data)
+
+            int processedSamples = 0;
+
+            foreach (byte currentByte in data)
             {
-                if (bit == 1)
-                    value += step;
-                else
-                    value -= step;
+                for (int bitPosition = 0; bitPosition < 8; bitPosition++)
+                {
+                    if (processedSamples >= originalSampleCount)
+                        break;
 
-                value = Math.Max(short.MinValue, Math.Min(short.MaxValue, value));
-                samples.Add((short)value);
+                    int bit = (currentByte >> bitPosition) & 1;
 
-                
-                if (bit == previousBit)
-                    step = Math.Min(10000, (int)(step * 1.5));
-                else
-                    step = Math.Max(10, (int)(step* 0.5));
+                    if (bit == 1)
+                        value += step;
+                    else
+                        value -= step;
 
-                previousBit = bit;
-                reportProgress?.Invoke((i * 100) / data.Count);
-                i++;
+                    value = Math.Max(
+                        short.MinValue,
+                        Math.Min(short.MaxValue, value));
+
+                    samples.Add((short)value);
+
+                    if (bit == previousBit)
+                        step = Math.Min(10000, (int)(step * 1.5));
+                    else
+                        step = Math.Max(10, (int)(step * 0.5));
+
+                    previousBit = bit;
+
+                    processedSamples++;
+
+                    reportProgress?.Invoke(
+                        (processedSamples * 100) / originalSampleCount);
+                }
             }
+
             return samples;
         }
 
-        /*  public static List<short> CompressPDC(float[] samples , CompressionSettings settings)
-          {
-              List<short> compressed = new List<short>();
-
-              int previous = 0;
-
-              foreach (float sample in samples)
-              {
-                  int current = ToPCM(sample);
-
-                  int error = current - previous;
-
-                  compressed.Add((short)Clamp(error, short.MinValue, short.MaxValue));
-
-                  previous = current;
-              }
-
-              return compressed;
-          }*/
-
-        public static List<short> CompressPDC(float[] samples, CompressionSettings settings, Action<CompressionProgressInfo> reportProgress = null)
+        public static List<byte> CompressPDC(
+          float[] samples,
+          CompressionSettings settings,
+          Action<CompressionProgressInfo> reportProgress = null)
         {
-            List<short> compressed = new List<short>();
+            List<byte> compressed = new List<byte>();
 
-            int prev1 = 0; 
-            int prev2 = 0; 
-            int prev3 = 0; 
+            int prev1 = 0;
+            int prev2 = 0;
+            int prev3 = 0;
 
             int levels = settings.QuantizationLevels;
+
+            int bitsPerSample = (int)Math.Log(levels, 2);
             float interval = 65535f / levels;
+
             int maxLevel = (levels / 2) - 1;
             int minLevel = -(levels / 2);
+
+            byte currentByte = 0;
+            int bitPosition = 0;
+
             Stopwatch sw = Stopwatch.StartNew();
             CompressionProgressInfo info = new CompressionProgressInfo();
+
             for (int i = 0; i < samples.Length; i++)
             {
-                float sample = samples[i];
-                int current = ToPCM(sample);
+                int current = ToPCM(samples[i]);
 
-               
-                int predicted = (int)((0.6f * prev1) + (0.3f * prev2) + (0.1f * prev3));
+                int predicted =
+                    (int)((0.6f * prev1) +
+                          (0.3f * prev2) +
+                          (0.1f * prev3));
 
-              
                 int error = current - predicted;
 
-                int quantizedError = (int)Math.Round(error / interval);
-                quantizedError = Math.Max(minLevel, Math.Min(maxLevel, quantizedError));
-                compressed.Add((short)quantizedError);
-               
-                int reconstructedError = (int)(quantizedError * interval);
-                int currentReconstructed = predicted + reconstructedError;
-                currentReconstructed = Math.Max(short.MinValue, Math.Min(short.MaxValue, currentReconstructed));
-             
-                prev3 = prev2; 
-                prev2 = prev1; 
+                int quantizedError =
+                    (int)Math.Round(error / interval);
+
+                quantizedError =
+                    Math.Max(minLevel,
+                    Math.Min(maxLevel, quantizedError));
+
+                int packedValue =
+                    quantizedError - minLevel;
+
+                for (int b = 0; b < bitsPerSample; b++)
+                {
+                    int bit = (packedValue >> b) & 1;
+
+                    currentByte |=
+                        (byte)(bit << bitPosition);
+
+                    bitPosition++;
+
+                    if (bitPosition == 8)
+                    {
+                        compressed.Add(currentByte);
+
+                        currentByte = 0;
+                        bitPosition = 0;
+                    }
+                }
+
+                int reconstructedError =
+                    (int)(quantizedError * interval);
+
+                int currentReconstructed =
+                    predicted + reconstructedError;
+
+                currentReconstructed =
+                    Math.Max(short.MinValue,
+                    Math.Min(short.MaxValue,
+                    currentReconstructed));
+
+                prev3 = prev2;
+                prev2 = prev1;
                 prev1 = currentReconstructed;
 
                 if (i % 200 == 0 || i == samples.Length - 1)
@@ -458,35 +500,24 @@ namespace AudioCompressionProject
                     info.ElapsedSeconds = sw.Elapsed.TotalSeconds;
                     info.CompressedSize = compressed.Count;
 
-
                     reportProgress?.Invoke(info);
                 }
             }
+
+            if (bitPosition > 0)
+            {
+                compressed.Add(currentByte);
+            }
+
             sw.Stop();
 
             return compressed;
         }
-
-        /*  public static List<short> DecompressPDC(List<short> data)
-          {
-              List<short> samples = new List<short>();
-
-              int previous = 0;
-
-              foreach (short error in data)
-              {
-                  int current = previous + error;
-
-                  samples.Add((short)Clamp(current, short.MinValue, short.MaxValue));
-
-                  previous = current;
-              }
-
-              return samples;
-          }*/
-
-       
-        public static List<short> DecompressPDC(List<short> data, CompressionSettings settings, Action<int> reportProgress = null)
+        public static List<short> DecompressPDC(
+          List<byte> data,
+          CompressionSettings settings,
+          int originalSampleCount,
+          Action<int> reportProgress = null)
         {
             List<short> samples = new List<short>();
 
@@ -495,46 +526,94 @@ namespace AudioCompressionProject
             int prev3 = 0;
 
             int levels = settings.QuantizationLevels;
+            int bitsPerSample = (int)Math.Log(levels, 2);
             float interval = 65535f / levels;
-            int i = 1;
-            foreach (short qError in data)
-            {
-             
-                int predicted = (int)((0.6f * prev1) + (0.3f * prev2) + (0.1f * prev3));
-          
-                int reconstructedError = (int)(qError * interval);
-     
-                int currentReconstructed = predicted + reconstructedError;
-                short finalSample = (short)Math.Max(short.MinValue, Math.Min(short.MaxValue, currentReconstructed));
-                samples.Add(finalSample);
-       
-                prev3 = prev2;
-                prev2 = prev1;
-                prev1 = currentReconstructed;
 
-                reportProgress?.Invoke((i * 100) / data.Count);
-                i++;
+            int minLevel = -(levels / 2);
+
+            int currentValue = 0;
+            int bitsRead = 0;
+            int processedSamples = 0;
+
+            foreach (byte currentByte in data)
+            {
+                for (int bitPosition = 0; bitPosition < 8; bitPosition++)
+                {
+                    int bit = (currentByte >> bitPosition) & 1;
+
+                    currentValue |= (bit << bitsRead);
+                    bitsRead++;
+
+                    if (bitsRead == bitsPerSample)
+                    {
+                        int qError = currentValue + minLevel;
+
+                        int predicted =
+                            (int)((0.6f * prev1) +
+                                  (0.3f * prev2) +
+                                  (0.1f * prev3));
+
+                        int reconstructedError =
+                            (int)(qError * interval);
+
+                        int currentReconstructed =
+                            predicted + reconstructedError;
+
+                        currentReconstructed =
+                            Math.Max(short.MinValue,
+                            Math.Min(short.MaxValue,
+                            currentReconstructed));
+
+                        samples.Add((short)currentReconstructed);
+
+                        prev3 = prev2;
+                        prev2 = prev1;
+                        prev1 = currentReconstructed;
+
+                        processedSamples++;
+
+                        reportProgress?.Invoke(
+                            (processedSamples * 100) /
+                            originalSampleCount);
+
+                        currentValue = 0;
+                        bitsRead = 0;
+
+                        if (processedSamples >= originalSampleCount)
+                            return samples;
+                    }
+                }
             }
 
             return samples;
         }
 
-        public static List<short> CompressNonlinearQuantization(float[] samples , CompressionSettings settings , Action<CompressionProgressInfo> reportProgress = null)
+        public static List<byte> CompressNonlinearQuantization(
+            float[] samples,
+            CompressionSettings settings,
+            Action<CompressionProgressInfo> reportProgress = null)
         {
-            List<short> compressed = new List<short>();
+            List<byte> compressed = new List<byte>();
 
             const float mu = 255f;
+
+            byte currentByte = 0;
+            int bitPosition = 0;
+
             Stopwatch sw = Stopwatch.StartNew();
             CompressionProgressInfo info = new CompressionProgressInfo();
+
             for (int i = 0; i < samples.Length; i++)
             {
-                float sample = samples[i];
-                float x = sample;
+                float x = samples[i];
                 float compressedValue =
                     Math.Sign(x) *
                     (float)(Math.Log(1 + mu * Math.Abs(x)) / Math.Log(1 + mu));
 
-                compressed.Add((short)(compressedValue * 32767));
+                int quantized = (int)((compressedValue + 1f) * 127.5f);
+
+                quantized = Math.Max(0, Math.Min(255, quantized));
+                compressed.Add((byte)quantized);
 
                 if (i % 200 == 0 || i == samples.Length - 1)
                 {
@@ -543,24 +622,32 @@ namespace AudioCompressionProject
                     info.ElapsedSeconds = sw.Elapsed.TotalSeconds;
                     info.CompressedSize = compressed.Count;
 
-
                     reportProgress?.Invoke(info);
                 }
             }
-            sw.Stop();
 
+            if (bitPosition > 0)
+                compressed.Add(currentByte);
+
+            sw.Stop();
             return compressed;
         }
-
-        public static List<short> DecompressNonlinearQuantization(List<short> data, Action<int> reportProgress = null)
+        public static List<short> DecompressNonlinearQuantization(
+           List<byte> data,
+           int originalSampleCount,
+           Action<int> reportProgress = null)
         {
             List<short> samples = new List<short>();
 
             const float mu = 255f;
-            int i = 1;  
-            foreach (short q in data)
+
+            int processed = 0;
+
+            foreach (byte quantized in data)
             {
-                float x = q / 32767f;
+                float x = (quantized / 127.5f) - 1f;
+
+                x = Math.Max(-1f, Math.Min(1f, x));
 
                 float expanded =
                     Math.Sign(x) *
@@ -569,8 +656,13 @@ namespace AudioCompressionProject
 
                 samples.Add((short)(expanded * 32767));
 
-                reportProgress?.Invoke((i * 100) / data.Count);
-                i++;
+                processed++;
+
+                reportProgress?.Invoke(
+                    (processed * 100) / originalSampleCount);
+
+                if (processed >= originalSampleCount)
+                    break;
             }
 
             return samples;

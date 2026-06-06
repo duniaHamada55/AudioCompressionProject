@@ -218,10 +218,8 @@ namespace AudioCompressionProject
                     }
                 }
 
-               
+                List<byte> compressedData = null;
 
-                List<short> compressedData = null;
-               
                 try
                 {
 
@@ -231,7 +229,6 @@ namespace AudioCompressionProject
                     settings.QuantizationLevels = cmbQuantization.SelectedItem != null
                     ? int.Parse(cmbQuantization.SelectedItem.ToString())
                     : 0;
-                    settings.StepSize = (int)numStepSize.Value;
 
                 }
                 catch (Exception ex)
@@ -256,7 +253,7 @@ namespace AudioCompressionProject
                     double speed = info.ElapsedSeconds > 0 ? (info.ProcessedSamples / info.ElapsedSeconds) : 0;
                    
                     double originalSizeBytes = (info.ProcessedSamples + 1) * 2; 
-                    double compressedSizeBytes = info.CompressedSize * 2;       
+                    double compressedSizeBytes = info.CompressedSize ;       
                     double ratio = compressedSizeBytes > 0 ? (originalSizeBytes / compressedSizeBytes) : 1.0;
                    
                     int currentProgressPercent = (int)(info.ProcessedSamples * 100.0 / info.TotalSamples);
@@ -304,14 +301,18 @@ namespace AudioCompressionProject
 
                 if (saveDialog.ShowDialog() == DialogResult.OK)
                 {
+
                     using (BinaryWriter writer =
-                           new BinaryWriter(File.Open(saveDialog.FileName, FileMode.Create)))
+                            new BinaryWriter(File.Open(saveDialog.FileName, FileMode.Create)))
                     {
                         writer.Write(settings.SampleRate);
                         writer.Write(channels);
+                        writer.Write(settings.QuantizationLevels);
+                        writer.Write(settings.StepSize);
+                        writer.Write(settings.Algorithm);
                         writer.Write(compressedData.Count);
 
-                        foreach (short value in compressedData)
+                        foreach (byte value in compressedData)
                             writer.Write(value);
                     }
 
@@ -344,7 +345,7 @@ namespace AudioCompressionProject
 
             try
             {
-                List<short> data = new List<short>();
+                List<byte> data = new List<byte>();
 
                 int sampleRate;
                 int channels;
@@ -358,67 +359,89 @@ namespace AudioCompressionProject
                         MessageBox.Show("Invalid compressed file.");
                         return;
                     }
-
                     sampleRate = reader.ReadInt32();
                     channels = reader.ReadInt32();
+
+                    settings.QuantizationLevels = reader.ReadInt32();
+                    settings.StepSize = reader.ReadInt32();
+
+                    string algorithmFromFile = reader.ReadString();
+
                     count = reader.ReadInt32();
 
- 
+
                     if (count <= 0 || count > reader.BaseStream.Length)
                     {
                         MessageBox.Show("Corrupted file data.");
                         return;
                     }
-
                     for (int i = 0; i < count; i++)
-                        data.Add(reader.ReadInt16());
+                        data.Add(reader.ReadByte());
                 }
                 settings.StepSize = (int)numStepSize.Value;
 
                 List<short> result = null;
 
                 string algorithm = cmbAlgorithm.SelectedItem.ToString();
-
                 switch (algorithm)
                 {
                     case "DPCM":
-                        result = AudioCompressor.DecompressDPCM(data , settings , progress =>
-                        {
-                            progressBar1.Value = progress;
-                            Application.DoEvents();
-                        });
+                        result = AudioCompressor.DecompressDPCM(
+                            data,
+                            settings,
+                            count,
+                            progress =>
+                            {
+                                progressBar1.Value = progress;
+                                Application.DoEvents();
+                            });
                         break;
 
                     case "Delta Modulation":
-                        result = AudioCompressor.DecompressDelta(data , settings , progress =>
-                        {
-                            progressBar1.Value = progress;
-                            Application.DoEvents();
-                        });
+                        result = AudioCompressor.DecompressDelta(
+                            data,
+                            settings,
+                            count,
+                            progress =>
+                            {
+                                progressBar1.Value = progress;
+                                Application.DoEvents();
+                            });
                         break;
 
                     case "Adaptive Delta Modulation":
-                        result = AudioCompressor.DecompressAdaptiveDelta(data,settings, progress =>
-                        {
-                            progressBar1.Value = progress;
-                            Application.DoEvents();
-                        });
+                        result = AudioCompressor.DecompressAdaptiveDelta(
+                            data,
+                            settings,
+                            count,
+                            progress =>
+                            {
+                                progressBar1.Value = progress;
+                                Application.DoEvents();
+                            });
                         break;
 
                     case "Predictive Differential Coding":
-                        result = AudioCompressor.DecompressPDC(data,settings, progress =>
-                        {
-                            progressBar1.Value = progress;
-                            Application.DoEvents();
-                        });
+                        result = AudioCompressor.DecompressPDC(
+                            data,
+                            settings,
+                            count,
+                            progress =>
+                            {
+                                progressBar1.Value = progress;
+                                Application.DoEvents();
+                            });
                         break;
 
                     case "Nonlinear Quantization":
-                        result = AudioCompressor.DecompressNonlinearQuantization(data, progress =>
-                        {
-                            progressBar1.Value = progress;
-                            Application.DoEvents();
-                        });
+                        result = AudioCompressor.DecompressNonlinearQuantization(
+                            data,
+                            count,
+                            progress =>
+                            {
+                                progressBar1.Value = progress;
+                                Application.DoEvents();
+                            });
                         break;
                 }
 
