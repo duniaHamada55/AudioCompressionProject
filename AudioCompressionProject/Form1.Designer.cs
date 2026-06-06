@@ -29,6 +29,12 @@ namespace AudioCompressionProject
         /// </summary>
         private void InitializeComponent()
         {
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea1 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.Legend legend1 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+            System.Windows.Forms.DataVisualization.Charting.Series series1 = new System.Windows.Forms.DataVisualization.Charting.Series();
+            System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea2 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+            System.Windows.Forms.DataVisualization.Charting.Legend legend2 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+            System.Windows.Forms.DataVisualization.Charting.Series series2 = new System.Windows.Forms.DataVisualization.Charting.Series();
             this.btnBrowse = new System.Windows.Forms.Button();
             this.txtFilePath = new System.Windows.Forms.TextBox();
             this.btnPlay = new System.Windows.Forms.Button();
@@ -45,14 +51,27 @@ namespace AudioCompressionProject
             this.label1 = new System.Windows.Forms.Label();
             this.btnCompress = new System.Windows.Forms.Button();
             this.btnDecompress = new System.Windows.Forms.Button();
+            this.cmbSampleRate = new System.Windows.Forms.ComboBox();
+            this.numStepSize = new System.Windows.Forms.NumericUpDown();
+            this.cmbQuantization = new System.Windows.Forms.ComboBox();
+            this.lblSampleRate = new System.Windows.Forms.Label();
+            this.lblQuantization = new System.Windows.Forms.Label();
+            this.lblStepSize = new System.Windows.Forms.Label();
+            this.progressBar1 = new System.Windows.Forms.ProgressBar();
+            this.chartSpeed = new System.Windows.Forms.DataVisualization.Charting.Chart();
+            this.chartRatio = new System.Windows.Forms.DataVisualization.Charting.Chart();
             this.groupBox1.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.numStepSize)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.chartSpeed)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.chartRatio)).BeginInit();
             this.SuspendLayout();
             // 
             // btnBrowse
             // 
-            this.btnBrowse.Location = new System.Drawing.Point(1, 69);
+            this.btnBrowse.Location = new System.Drawing.Point(2, 108);
+            this.btnBrowse.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.btnBrowse.Name = "btnBrowse";
-            this.btnBrowse.Size = new System.Drawing.Size(112, 48);
+            this.btnBrowse.Size = new System.Drawing.Size(168, 75);
             this.btnBrowse.TabIndex = 0;
             this.btnBrowse.Text = "Browse";
             this.btnBrowse.UseVisualStyleBackColor = true;
@@ -60,16 +79,18 @@ namespace AudioCompressionProject
             // 
             // txtFilePath
             // 
-            this.txtFilePath.Location = new System.Drawing.Point(2, 416);
+            this.txtFilePath.Location = new System.Drawing.Point(0, 937);
+            this.txtFilePath.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.txtFilePath.Name = "txtFilePath";
-            this.txtFilePath.Size = new System.Drawing.Size(524, 22);
+            this.txtFilePath.Size = new System.Drawing.Size(784, 31);
             this.txtFilePath.TabIndex = 1;
             // 
             // btnPlay
             // 
-            this.btnPlay.Location = new System.Drawing.Point(0, 133);
+            this.btnPlay.Location = new System.Drawing.Point(0, 208);
+            this.btnPlay.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.btnPlay.Name = "btnPlay";
-            this.btnPlay.Size = new System.Drawing.Size(112, 33);
+            this.btnPlay.Size = new System.Drawing.Size(168, 52);
             this.btnPlay.TabIndex = 2;
             this.btnPlay.Text = "Play";
             this.btnPlay.UseVisualStyleBackColor = true;
@@ -77,9 +98,10 @@ namespace AudioCompressionProject
             // 
             // btnPause
             // 
-            this.btnPause.Location = new System.Drawing.Point(0, 184);
+            this.btnPause.Location = new System.Drawing.Point(0, 288);
+            this.btnPause.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.btnPause.Name = "btnPause";
-            this.btnPause.Size = new System.Drawing.Size(111, 32);
+            this.btnPause.Size = new System.Drawing.Size(166, 50);
             this.btnPause.TabIndex = 3;
             this.btnPause.Text = "Pause";
             this.btnPause.UseVisualStyleBackColor = true;
@@ -87,9 +109,10 @@ namespace AudioCompressionProject
             // 
             // btnStop
             // 
-            this.btnStop.Location = new System.Drawing.Point(0, 232);
+            this.btnStop.Location = new System.Drawing.Point(0, 362);
+            this.btnStop.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(111, 28);
+            this.btnStop.Size = new System.Drawing.Size(166, 44);
             this.btnStop.TabIndex = 4;
             this.btnStop.Text = "Stop";
             this.btnStop.UseVisualStyleBackColor = true;
@@ -103,9 +126,11 @@ namespace AudioCompressionProject
             this.groupBox1.Controls.Add(this.lblSamplingRate);
             this.groupBox1.Controls.Add(this.lblDuration);
             this.groupBox1.Controls.Add(this.lblFileSize);
-            this.groupBox1.Location = new System.Drawing.Point(176, 13);
+            this.groupBox1.Location = new System.Drawing.Point(264, 20);
+            this.groupBox1.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(612, 363);
+            this.groupBox1.Padding = new System.Windows.Forms.Padding(4, 5, 4, 5);
+            this.groupBox1.Size = new System.Drawing.Size(918, 567);
             this.groupBox1.TabIndex = 5;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Audio file properties";
@@ -113,54 +138,60 @@ namespace AudioCompressionProject
             // lblCodec
             // 
             this.lblCodec.AutoSize = true;
-            this.lblCodec.Location = new System.Drawing.Point(53, 287);
+            this.lblCodec.Location = new System.Drawing.Point(80, 448);
+            this.lblCodec.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblCodec.Name = "lblCodec";
-            this.lblCodec.Size = new System.Drawing.Size(47, 16);
+            this.lblCodec.Size = new System.Drawing.Size(74, 25);
             this.lblCodec.TabIndex = 5;
             this.lblCodec.Text = "Codec";
             // 
             // lblBitRate
             // 
             this.lblBitRate.AutoSize = true;
-            this.lblBitRate.Location = new System.Drawing.Point(342, 287);
+            this.lblBitRate.Location = new System.Drawing.Point(513, 448);
+            this.lblBitRate.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblBitRate.Name = "lblBitRate";
-            this.lblBitRate.Size = new System.Drawing.Size(51, 16);
+            this.lblBitRate.Size = new System.Drawing.Size(82, 25);
             this.lblBitRate.TabIndex = 4;
             this.lblBitRate.Text = "BitRate";
             // 
             // lblChannels
             // 
             this.lblChannels.AutoSize = true;
-            this.lblChannels.Location = new System.Drawing.Point(42, 155);
+            this.lblChannels.Location = new System.Drawing.Point(63, 242);
+            this.lblChannels.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblChannels.Name = "lblChannels";
-            this.lblChannels.Size = new System.Drawing.Size(63, 16);
+            this.lblChannels.Size = new System.Drawing.Size(103, 25);
             this.lblChannels.TabIndex = 3;
             this.lblChannels.Text = "Channels";
             // 
             // lblSamplingRate
             // 
             this.lblSamplingRate.AutoSize = true;
-            this.lblSamplingRate.Location = new System.Drawing.Point(320, 155);
+            this.lblSamplingRate.Location = new System.Drawing.Point(480, 242);
+            this.lblSamplingRate.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblSamplingRate.Name = "lblSamplingRate";
-            this.lblSamplingRate.Size = new System.Drawing.Size(96, 16);
+            this.lblSamplingRate.Size = new System.Drawing.Size(152, 25);
             this.lblSamplingRate.TabIndex = 2;
             this.lblSamplingRate.Text = "Sampling Rate";
             // 
             // lblDuration
             // 
             this.lblDuration.AutoSize = true;
-            this.lblDuration.Location = new System.Drawing.Point(320, 56);
+            this.lblDuration.Location = new System.Drawing.Point(480, 88);
+            this.lblDuration.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblDuration.Name = "lblDuration";
-            this.lblDuration.Size = new System.Drawing.Size(60, 16);
+            this.lblDuration.Size = new System.Drawing.Size(98, 25);
             this.lblDuration.TabIndex = 1;
             this.lblDuration.Text = "lDuration";
             // 
             // lblFileSize
             // 
             this.lblFileSize.AutoSize = true;
-            this.lblFileSize.Location = new System.Drawing.Point(42, 56);
+            this.lblFileSize.Location = new System.Drawing.Point(63, 88);
+            this.lblFileSize.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblFileSize.Name = "lblFileSize";
-            this.lblFileSize.Size = new System.Drawing.Size(55, 16);
+            this.lblFileSize.Size = new System.Drawing.Size(89, 25);
             this.lblFileSize.TabIndex = 0;
             this.lblFileSize.Text = "FileSize";
             this.lblFileSize.Click += new System.EventHandler(this.label1_Click);
@@ -174,26 +205,30 @@ namespace AudioCompressionProject
             "Adaptive Delta Modulation",
             "Predictive Differential Coding",
             "Nonlinear Quantization"});
-            this.cmbAlgorithm.Location = new System.Drawing.Point(0, 312);
+            this.cmbAlgorithm.Location = new System.Drawing.Point(0, 488);
+            this.cmbAlgorithm.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.cmbAlgorithm.Name = "cmbAlgorithm";
-            this.cmbAlgorithm.Size = new System.Drawing.Size(144, 24);
+            this.cmbAlgorithm.Size = new System.Drawing.Size(214, 33);
             this.cmbAlgorithm.TabIndex = 6;
+            this.cmbAlgorithm.SelectedIndexChanged += new System.EventHandler(this.cmbAlgorithm_SelectedIndexChanged);
             // 
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(-2, 279);
+            this.label1.Location = new System.Drawing.Point(-3, 436);
+            this.label1.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(146, 16);
+            this.label1.Size = new System.Drawing.Size(234, 25);
             this.label1.TabIndex = 7;
             this.label1.Text = "Compression Algorithm";
             this.label1.Click += new System.EventHandler(this.label1_Click_1);
             // 
             // btnCompress
             // 
-            this.btnCompress.Location = new System.Drawing.Point(2, 342);
+            this.btnCompress.Location = new System.Drawing.Point(0, 794);
+            this.btnCompress.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.btnCompress.Name = "btnCompress";
-            this.btnCompress.Size = new System.Drawing.Size(111, 25);
+            this.btnCompress.Size = new System.Drawing.Size(166, 39);
             this.btnCompress.TabIndex = 8;
             this.btnCompress.Text = "compress";
             this.btnCompress.UseVisualStyleBackColor = true;
@@ -201,20 +236,166 @@ namespace AudioCompressionProject
             // 
             // btnDecompress
             // 
-            this.btnDecompress.Location = new System.Drawing.Point(3, 373);
+            this.btnDecompress.Location = new System.Drawing.Point(6, 859);
+            this.btnDecompress.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.btnDecompress.Name = "btnDecompress";
-            this.btnDecompress.Size = new System.Drawing.Size(109, 27);
+            this.btnDecompress.Size = new System.Drawing.Size(164, 42);
             this.btnDecompress.TabIndex = 9;
             this.btnDecompress.Text = "Decompress";
             this.btnDecompress.UseVisualStyleBackColor = true;
             this.btnDecompress.Click += new System.EventHandler(this.btnDecompress_Click);
             // 
+            // cmbSampleRate
+            // 
+            this.cmbSampleRate.FormattingEnabled = true;
+            this.cmbSampleRate.Items.AddRange(new object[] {
+            "44100",
+            "",
+            "22050",
+            "",
+            "11025",
+            "",
+            "8000"});
+            this.cmbSampleRate.Location = new System.Drawing.Point(-1, 573);
+            this.cmbSampleRate.Name = "cmbSampleRate";
+            this.cmbSampleRate.Size = new System.Drawing.Size(121, 33);
+            this.cmbSampleRate.TabIndex = 10;
+            this.cmbSampleRate.SelectedIndexChanged += new System.EventHandler(this.comboBox1_SelectedIndexChanged);
+            // 
+            // numStepSize
+            // 
+            this.numStepSize.Increment = new decimal(new int[] {
+            50,
+            0,
+            0,
+            0});
+            this.numStepSize.Location = new System.Drawing.Point(-1, 729);
+            this.numStepSize.Maximum = new decimal(new int[] {
+            10000,
+            0,
+            0,
+            0});
+            this.numStepSize.Minimum = new decimal(new int[] {
+            1,
+            0,
+            0,
+            0});
+            this.numStepSize.Name = "numStepSize";
+            this.numStepSize.Size = new System.Drawing.Size(120, 31);
+            this.numStepSize.TabIndex = 11;
+            this.numStepSize.Value = new decimal(new int[] {
+            500,
+            0,
+            0,
+            0});
+            // 
+            // cmbQuantization
+            // 
+            this.cmbQuantization.FormattingEnabled = true;
+            this.cmbQuantization.Items.AddRange(new object[] {
+            "2",
+            "4",
+            "8",
+            "16",
+            "32",
+            "64",
+            "128",
+            "256"});
+            this.cmbQuantization.Location = new System.Drawing.Point(2, 656);
+            this.cmbQuantization.Name = "cmbQuantization";
+            this.cmbQuantization.Size = new System.Drawing.Size(121, 33);
+            this.cmbQuantization.TabIndex = 12;
+            this.cmbQuantization.SelectedIndexChanged += new System.EventHandler(this.comboBox2_SelectedIndexChanged);
+            // 
+            // lblSampleRate
+            // 
+            this.lblSampleRate.AutoSize = true;
+            this.lblSampleRate.Location = new System.Drawing.Point(1, 536);
+            this.lblSampleRate.Name = "lblSampleRate";
+            this.lblSampleRate.Size = new System.Drawing.Size(135, 25);
+            this.lblSampleRate.TabIndex = 13;
+            this.lblSampleRate.Text = "samples rate";
+            // 
+            // lblQuantization
+            // 
+            this.lblQuantization.AutoSize = true;
+            this.lblQuantization.Location = new System.Drawing.Point(-3, 619);
+            this.lblQuantization.Name = "lblQuantization";
+            this.lblQuantization.Size = new System.Drawing.Size(202, 25);
+            this.lblQuantization.TabIndex = 14;
+            this.lblQuantization.Text = "Quantization Levels";
+            // 
+            // lblStepSize
+            // 
+            this.lblStepSize.AutoSize = true;
+            this.lblStepSize.Location = new System.Drawing.Point(-3, 692);
+            this.lblStepSize.Name = "lblStepSize";
+            this.lblStepSize.Size = new System.Drawing.Size(104, 25);
+            this.lblStepSize.TabIndex = 15;
+            this.lblStepSize.Text = "Step Size";
+            // 
+            // progressBar1
+            // 
+            this.progressBar1.Location = new System.Drawing.Point(197, 814);
+            this.progressBar1.Name = "progressBar1";
+            this.progressBar1.Size = new System.Drawing.Size(390, 49);
+            this.progressBar1.TabIndex = 16;
+            this.progressBar1.Click += new System.EventHandler(this.progressBar1_Click);
+            // 
+            // chartSpeed
+            // 
+            chartArea1.AxisX.Interval = 20D;
+            chartArea1.AxisX.Maximum = 100D;
+            chartArea1.AxisX.Minimum = 0D;
+            chartArea1.Name = "ChartArea1";
+            this.chartSpeed.ChartAreas.Add(chartArea1);
+            legend1.Name = "Legend1";
+            this.chartSpeed.Legends.Add(legend1);
+            this.chartSpeed.Location = new System.Drawing.Point(809, 656);
+            this.chartSpeed.Name = "chartSpeed";
+            series1.ChartArea = "ChartArea1";
+            series1.Legend = "Legend1";
+            series1.Name = "Series1";
+            this.chartSpeed.Series.Add(series1);
+            this.chartSpeed.Size = new System.Drawing.Size(791, 337);
+            this.chartSpeed.TabIndex = 17;
+            this.chartSpeed.Text = "chart1";
+            // 
+            // chartRatio
+            // 
+            chartArea2.AxisX.Interval = 20D;
+            chartArea2.AxisX.Maximum = 100D;
+            chartArea2.AxisX.Minimum = 0D;
+            chartArea2.Name = "ChartArea1";
+            this.chartRatio.ChartAreas.Add(chartArea2);
+            legend2.Name = "Legend1";
+            this.chartRatio.Legends.Add(legend2);
+            this.chartRatio.Location = new System.Drawing.Point(1622, 656);
+            this.chartRatio.Name = "chartRatio";
+            series2.ChartArea = "ChartArea1";
+            series2.Legend = "Legend1";
+            series2.Name = "Series1";
+            this.chartRatio.Series.Add(series2);
+            this.chartRatio.Size = new System.Drawing.Size(712, 337);
+            this.chartRatio.TabIndex = 18;
+            this.chartRatio.Text = "chart1";
+            this.chartRatio.Click += new System.EventHandler(this.chartRatio_Click);
+            // 
             // Form1
             // 
             this.AllowDrop = true;
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 25F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(800, 450);
+            this.ClientSize = new System.Drawing.Size(2346, 1021);
+            this.Controls.Add(this.chartRatio);
+            this.Controls.Add(this.chartSpeed);
+            this.Controls.Add(this.progressBar1);
+            this.Controls.Add(this.lblStepSize);
+            this.Controls.Add(this.lblQuantization);
+            this.Controls.Add(this.lblSampleRate);
+            this.Controls.Add(this.cmbQuantization);
+            this.Controls.Add(this.numStepSize);
+            this.Controls.Add(this.cmbSampleRate);
             this.Controls.Add(this.btnDecompress);
             this.Controls.Add(this.btnCompress);
             this.Controls.Add(this.label1);
@@ -225,12 +406,16 @@ namespace AudioCompressionProject
             this.Controls.Add(this.btnPlay);
             this.Controls.Add(this.txtFilePath);
             this.Controls.Add(this.btnBrowse);
+            this.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.Name = "Form1";
             this.Text = "Form1";
             this.DragDrop += new System.Windows.Forms.DragEventHandler(this.Form1_DragDrop);
             this.DragEnter += new System.Windows.Forms.DragEventHandler(this.Form1_DragEnter);
             this.groupBox1.ResumeLayout(false);
             this.groupBox1.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.numStepSize)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.chartSpeed)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.chartRatio)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -254,6 +439,15 @@ namespace AudioCompressionProject
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Button btnCompress;
         private System.Windows.Forms.Button btnDecompress;
+        private System.Windows.Forms.ComboBox cmbSampleRate;
+        private System.Windows.Forms.NumericUpDown numStepSize;
+        private System.Windows.Forms.ComboBox cmbQuantization;
+        private System.Windows.Forms.Label lblSampleRate;
+        private System.Windows.Forms.Label lblQuantization;
+        private System.Windows.Forms.Label lblStepSize;
+        private System.Windows.Forms.ProgressBar progressBar1;
+        private System.Windows.Forms.DataVisualization.Charting.Chart chartSpeed;
+        private System.Windows.Forms.DataVisualization.Charting.Chart chartRatio;
     }
 }
 
