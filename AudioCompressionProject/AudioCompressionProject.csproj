@@ -94,6 +94,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AudioCompressor.cs" />
+    <Compile Include="CompressionReport.cs" />
     <Compile Include="CompressionProgressInfo.cs" />
     <Compile Include="CompressionSettings.cs" />
     <Compile Include="Form1.cs">

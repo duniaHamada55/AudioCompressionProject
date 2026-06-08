@@ -3,6 +3,9 @@ using System.IO;
 using System.Windows.Forms;
 using NAudio.Wave;
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Diagnostics;
 
 namespace AudioCompressionProject
 {
@@ -10,6 +13,7 @@ namespace AudioCompressionProject
     {
         private WaveOutEvent outputDevice;
         private AudioFileReader audioFile;
+        private CancellationTokenSource cts;
         public Form1()
         {
             InitializeComponent();
@@ -184,6 +188,8 @@ namespace AudioCompressionProject
         CompressionSettings settings = new CompressionSettings();
         private void btnCompress_Click(object sender, EventArgs e)
         {
+            cts = new CancellationTokenSource();
+
             if (string.IsNullOrEmpty(txtFilePath.Text))
             {
                 MessageBox.Show("Please select an audio file first.");
@@ -196,10 +202,15 @@ namespace AudioCompressionProject
                 return;
             }
 
+            if (cmbSampleRate.SelectedItem == null)
+            {
+                MessageBox.Show("Please select a sampling rate.");
+                return;
+            }
+
             try
             {
                 List<float> samples = new List<float>();
-
                 int sampleRate = 0;
                 int channels = 0;
 
@@ -218,46 +229,55 @@ namespace AudioCompressionProject
                     }
                 }
 
-                List<byte> compressedData = null;
-
                 try
                 {
-
-
                     settings.Algorithm = cmbAlgorithm.SelectedItem?.ToString();
-                    settings.SampleRate = int.Parse(cmbSampleRate.SelectedItem.ToString());                 
+                    settings.SampleRate = int.Parse(cmbSampleRate.SelectedItem.ToString());
                     settings.QuantizationLevels = cmbQuantization.SelectedItem != null
-                    ? int.Parse(cmbQuantization.SelectedItem.ToString())
-                    : 0;
+                        ? int.Parse(cmbQuantization.SelectedItem.ToString())
+                        : 0;
 
+                    if (cmbAlgorithm.SelectedItem.ToString() == "Delta Modulation" ||
+                        cmbAlgorithm.SelectedItem.ToString() == "Adaptive Delta Modulation")
+                    {
+                        settings.StepSize = (int)numStepSize.Value;
+                    }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.ToString());
+                    MessageBox.Show("Error reading compression settings:\n" + ex.Message);
+                    return;
                 }
-                float[] processedSamples =
-                         ApplySampleRate(
-                         samples.ToArray(),
-                         sampleRate,
-                         settings.SampleRate);
+
+                float[] processedSamples = ApplySampleRate(
+                    samples.ToArray(),
+                    sampleRate,
+                    settings.SampleRate);
+
                 progressBar1.Value = 0;
+                progressBar1.Minimum = 0;
+                progressBar1.Maximum = 100;
+
                 chartSpeed.Series["Speed"].Points.Clear();
                 chartRatio.Series["Ratio"].Points.Clear();
 
                 Action<CompressionProgressInfo> progressCallback = info =>
                 {
-                   
                     int progress = (int)((info.ProcessedSamples + 1) * 100.0 / info.TotalSamples);
                     progressBar1.Value = Math.Min(100, Math.Max(0, progress));
 
-                    double speed = info.ElapsedSeconds > 0 ? (info.ProcessedSamples / info.ElapsedSeconds) : 0;
-                   
-                    double originalSizeBytes = (info.ProcessedSamples + 1) * 2; 
-                    double compressedSizeBytes = info.CompressedSize ;       
-                    double ratio = compressedSizeBytes > 0 ? (originalSizeBytes / compressedSizeBytes) : 1.0;
-                   
+                    double speed = info.ElapsedSeconds > 0
+                        ? (info.ProcessedSamples / info.ElapsedSeconds)
+                        : 0;
+
+                    double originalSizeBytes = (info.ProcessedSamples + 1) * 2;
+                    double compressedSizeBytes = info.CompressedSize;
+                    double ratio = compressedSizeBytes > 0
+                        ? (originalSizeBytes / compressedSizeBytes)
+                        : 1.0;
+
                     int currentProgressPercent = (int)(info.ProcessedSamples * 100.0 / info.TotalSamples);
-                  
+
                     if (info.ProcessedSamples % 5000 == 0 || info.ProcessedSamples == info.TotalSamples - 1)
                     {
                         chartSpeed.Series["Speed"].Points.AddXY(currentProgressPercent, speed);
@@ -267,28 +287,67 @@ namespace AudioCompressionProject
                     Application.DoEvents();
                 };
 
-                switch (settings.Algorithm)
+                List<byte> compressedData = null;
+
+                Stopwatch compressionTimer = Stopwatch.StartNew();
+
+                try
                 {
-                    case "DPCM":
-                        compressedData = AudioCompressor.CompressDPCM(processedSamples, settings, progressCallback);
-                        break;
+                    switch (settings.Algorithm)
+                    {
+                        case "DPCM":
+                            compressedData = AudioCompressor.CompressDPCM(
+                                cts.Token,
+                                processedSamples,
+                                settings,
+                                progressCallback);
+                            break;
 
-                    case "Delta Modulation":
-                        compressedData = AudioCompressor.CompressDelta(processedSamples, settings, progressCallback);
-                        break;
+                        case "Delta Modulation":
+                            compressedData = AudioCompressor.CompressDelta(
+                                cts.Token,
+                                processedSamples,
+                                settings,
+                                progressCallback);
+                            break;
 
-                    case "Adaptive Delta Modulation":
-                        compressedData = AudioCompressor.CompressAdaptiveDelta(processedSamples, settings, progressCallback);
-                        break;
+                        case "Adaptive Delta Modulation":
+                            compressedData = AudioCompressor.CompressAdaptiveDelta(
+                                cts.Token,
+                                processedSamples,
+                                settings,
+                                progressCallback);
+                            break;
 
-                    case "Predictive Differential Coding":
-                        compressedData = AudioCompressor.CompressPDC(processedSamples, settings, progressCallback);
-                        break;
+                        case "Predictive Differential Coding":
+                            compressedData = AudioCompressor.CompressPDC(
+                                cts.Token,
+                                processedSamples,
+                                settings,
+                                progressCallback);
+                            break;
 
-                    case "Nonlinear Quantization":
-                        compressedData = AudioCompressor.CompressNonlinearQuantization(processedSamples, settings, progressCallback);
-                        break;
+                        case "Nonlinear Quantization":
+                            compressedData = AudioCompressor.CompressNonlinearQuantization(
+                                cts.Token,
+                                processedSamples,
+                                settings,
+                                progressCallback);
+                            break;
+
+                        default:
+                            MessageBox.Show("Unsupported algorithm selected.");
+                            return;
+                    }
                 }
+                catch (OperationCanceledException)
+                {
+                    compressionTimer.Stop();
+                    MessageBox.Show("Compression Cancelled");
+                    return;
+                }
+
+                compressionTimer.Stop();
 
                 if (compressedData == null || compressedData.Count == 0)
                 {
@@ -301,9 +360,8 @@ namespace AudioCompressionProject
 
                 if (saveDialog.ShowDialog() == DialogResult.OK)
                 {
-
                     using (BinaryWriter writer =
-                            new BinaryWriter(File.Open(saveDialog.FileName, FileMode.Create)))
+                           new BinaryWriter(File.Open(saveDialog.FileName, FileMode.Create)))
                     {
                         writer.Write(settings.SampleRate);
                         writer.Write(channels);
@@ -317,6 +375,13 @@ namespace AudioCompressionProject
                     }
 
                     MessageBox.Show("Compression completed successfully.");
+
+                    CompressionReport.GenerateReport(
+                        txtFilePath.Text,
+                        saveDialog.FileName,
+                        settings.Algorithm,
+                        settings,
+                        compressionTimer.Elapsed.TotalSeconds);
                 }
             }
             catch (Exception ex)
@@ -481,6 +546,10 @@ namespace AudioCompressionProject
 
         private void cmbAlgorithm_SelectedIndexChanged(object sender, EventArgs e)
         {
+            if (cmbAlgorithm.SelectedItem == null)
+            {
+                return; 
+            }
             string algorithm =
        cmbAlgorithm.SelectedItem.ToString();
 
@@ -524,6 +593,61 @@ namespace AudioCompressionProject
         private void chartRatio_Click(object sender, EventArgs e)
         {
 
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            cts?.Cancel();
+        }
+        private void ResetAudioProperties()
+        {
+          /*  // 1. إيقاف التشغيل وتحرير موارد الملفات المفتوحة إن وجدت
+            if (outputDevice != null)
+            {
+                outputDevice.Stop();
+                outputDevice.Dispose();
+                outputDevice = null;
+            }
+            if (audioFile != null)
+            {
+                audioFile.Dispose();
+                audioFile = null;
+            }
+
+            // 2. إعادة تعيين نصوص عناصر الواجهة (Labels & TextBox)
+            txtFilePath.Text = string.Empty;
+            lblFileSize.Text = "File Size: 0.00 MB";
+            lblDuration.Text = "Duration: 00:00:00";
+            lblSamplingRate.Text = "Sampling Rate: 0 Hz";
+            lblChannels.Text = "Channels: -";
+            lblBitRate.Text = "Bit Rate: 0 kbps";
+            lblCodec.Text = "Audio Codec: -";
+          */
+            progressBar1.Value = 0;
+            if (chartSpeed.Series.IndexOf("Speed") != -1)
+            {
+                chartSpeed.Series["Speed"].Points.Clear();
+            }
+
+            if (chartRatio.Series.IndexOf("Ratio") != -1)
+            {
+                chartRatio.Series["Ratio"].Points.Clear();
+            }
+            cmbAlgorithm.SelectedIndex = -1;
+            cmbSampleRate.SelectedIndex = -1;
+            if (cmbQuantization.Items.Count > 0) cmbQuantization.SelectedIndex = -1;
+            numStepSize.Value = numStepSize.Minimum;
+
+            lblQuantization.Visible = false;
+            cmbQuantization.Visible = false;
+            lblStepSize.Visible = false;
+            numStepSize.Visible = false;
+
+            MessageBox.Show("All values and components have been successfully reset.", "Reset Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        private void button2_Click(object sender, EventArgs e)
+        {
+            ResetAudioProperties();
         }
     }
 }

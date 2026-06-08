@@ -4,7 +4,8 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using System.Diagnostics;
-
+using System.Threading;
+using System.Threading.Tasks;
 namespace AudioCompressionProject
 {
     public class AudioCompressor
@@ -23,9 +24,11 @@ namespace AudioCompressionProject
         }
 
         public static List<byte> CompressDPCM(
+           CancellationToken token,
            float[] samples,
            CompressionSettings settings,
-           Action<CompressionProgressInfo> reportProgress = null)
+           Action<CompressionProgressInfo> reportProgress = null
+          )
         {
             List<byte> compressed = new List<byte>();
 
@@ -47,6 +50,7 @@ namespace AudioCompressionProject
 
             for (int i = 0; i < samples.Length; i++)
             {
+                token.ThrowIfCancellationRequested();
                 int current = ToPCM(samples[i]);
 
                 int predicted = (prev1 + prev2) / 2;
@@ -167,6 +171,7 @@ namespace AudioCompressionProject
             return samples;
         }
         public static List<byte> CompressDelta(
+            CancellationToken token,
            float[] samples,
            CompressionSettings settings,
            Action<CompressionProgressInfo> reportProgress = null)
@@ -184,6 +189,7 @@ namespace AudioCompressionProject
 
             for (int i = 0; i < samples.Length; i++)
             {
+                token.ThrowIfCancellationRequested();
                 float sample = samples[i];
                 int current = ToPCM(sample);
 
@@ -283,6 +289,7 @@ namespace AudioCompressionProject
         }
 
         public static List<byte> CompressAdaptiveDelta(
+           CancellationToken token,
           float[] samples,
           CompressionSettings settings,
           Action<CompressionProgressInfo> reportProgress = null)
@@ -301,6 +308,7 @@ namespace AudioCompressionProject
 
             for (int i = 0; i < samples.Length; i++)
             {
+                token.ThrowIfCancellationRequested();
                 float sample = samples[i];
                 int current = ToPCM(sample);
 
@@ -415,6 +423,7 @@ namespace AudioCompressionProject
         }
 
         public static List<byte> CompressPDC(
+            CancellationToken token,
           float[] samples,
           CompressionSettings settings,
           Action<CompressionProgressInfo> reportProgress = null)
@@ -441,6 +450,7 @@ namespace AudioCompressionProject
 
             for (int i = 0; i < samples.Length; i++)
             {
+                token.ThrowIfCancellationRequested();
                 int current = ToPCM(samples[i]);
 
                 int predicted =
@@ -589,6 +599,7 @@ namespace AudioCompressionProject
         }
 
         public static List<byte> CompressNonlinearQuantization(
+            CancellationToken token,
             float[] samples,
             CompressionSettings settings,
             Action<CompressionProgressInfo> reportProgress = null)
@@ -605,6 +616,7 @@ namespace AudioCompressionProject
 
             for (int i = 0; i < samples.Length; i++)
             {
+                token.ThrowIfCancellationRequested();
                 float x = samples[i];
                 float compressedValue =
                     Math.Sign(x) *
